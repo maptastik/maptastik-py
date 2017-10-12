@@ -53,3 +53,40 @@ Domain:	{3}
 -----
 			""".format(field.name, field.type, field.editable, field.domain))
 	return {"field_names": field_names, "field_amt": len(fields)}
+
+def addRanks(table, sort_fields, category_field, rank_field='RANK'):
+    """Use sort_fields and category_field to apply a ranking to the table.
+
+	Source:
+	ArcPy Cafe, "Ranking field values", 8/2/2013, https://arcpy.wordpress.com/2013/08/02/ranking-field-values
+
+    Parameters:
+        table: string
+        sort_fields: list | tuple of strings
+            The field(s) on which the table will be sorted.
+        category_field: string
+            All records with a common value in the category_field
+            will be ranked independently.
+        rank_field: string
+            The new rank field name to be added.
+    """
+
+    # add rank field if it does not already exist
+    if not arcpy.ListFields(table, rank_field):
+        arcpy.AddField_management(table, rank_field, "SHORT")
+
+    sort_sql = ', '.join(['ORDER BY ' + category_field] + sort_fields)
+    query_fields = [category_field, rank_field] + sort_fields
+
+    with arcpy.da.UpdateCursor(table, query_fields,
+                               sql_clause=(None, sort_sql)) as cur:
+        category_field_val = None
+        i = 0
+        for row in cur:
+            if category_field_val == row[0]:
+                i += 1
+            else:
+                category_field_val = row[0]
+                i = 1
+            row[1] = i
+            cur.updateRow(row)
